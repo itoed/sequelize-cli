@@ -1,0 +1,8 @@
+sequelizecli:
+    build: docker
+    environment:
+        - SRC_DIR=/data
+    volumes:
+        - ./:/data/
+    entrypoint:
+        /data/docker/entrypoint.sh
