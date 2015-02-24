@@ -18,13 +18,6 @@ cmd="$@"
 cp /data/docker/bashrc /home/developer/.bashrc
 chown $gid:$uid /home/developer/.bashrc
 
-# Setup MySQL for testing
-#mysqld_safe &
-#echo 'Waiting for mysql to start'
-#sleep 5
-#mysql -e 'CREATE DATABASE sequelize_test'
-#echo 'Created sequelize_test database'
-
 # Start an interactive bash session
 if [ -z "$cmd"  ]; then
     exec su - developer

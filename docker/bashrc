@@ -7,4 +7,5 @@ fi
 
 # User specific aliases and functions
 cd /data
+export DIALECT=sqlite
 set -o vi
