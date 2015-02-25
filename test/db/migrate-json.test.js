@@ -8,15 +8,34 @@ var fs        = require("fs");
 var _         = require("lodash");
 
 ([
-  "db:migrate --storage='json'"
+  "db:migrate",
+  "db:migrate --migrations-path migrations",
+  "--migrations-path migrations db:migrate",
+  "db:migrate --migrations-path ./migrations",
+  "db:migrate --migrations-path ./migrations/",
+  "db:migrate --coffee",
+  "db:migrate --config ../../support/tmp/config/config.json",
+  "db:migrate --config " + Support.resolveSupportPath("tmp", "config", "config.json"),
+  "db:migrate --config ../../support/tmp/config/config.js"
 ]).forEach(function(flag) {
   var prepare = function(callback, options) {
-    options = _.assign({ config: {} }, options || {});
+    options = _.assign({ config: { migrationStorage: "json" } }, options || {});
 
-    var configPath    = "config/config.json";
+    var configPath    = "config/";
+    var migrationFile = options.migrationFile || "createPerson";
     var config        = _.assign({}, helpers.getTestConfig(), options.config);
-    var migrationFile = "createPerson.js";
     var configContent = JSON.stringify(config);
+
+    migrationFile = migrationFile + "."  + ((flag.indexOf("coffee") === -1) ? "js" : "coffee");
+
+    if (flag.match(/config\.js$/)) {
+      configPath    = configPath + "config.js";
+      configContent = "module.exports = " + configContent;
+    } else {
+      configPath = configPath + "config.json";
+    }
+
+    console.log(">>> " + configContent);
 
     gulp
       .src(Support.resolveSupportPath("tmp"))
@@ -29,23 +48,75 @@ var _         = require("lodash");
       .pipe(helpers.teardown(callback));
   };
 
-  describe(Support.getTestDialectTeaser(flag), function() {
-    it("creates a sequelize-meta.json file", function(done) {
-      var jsonFile = Support.resolveSupportPath("tmp", "sequelize-meta.json");
+  describe(Support.getTestDialectTeaser(flag) + " (JSON)", function() {
+    describe("the migration storage file", function () {
+      it("should be written to the default location", function(done) {
+        var storageFile = Support.resolveSupportPath("tmp", "sequelize-meta.json");
 
-      prepare(function() {
-        expect(fs.statSync(jsonFile).isFile()).to.be(true);
-        done();
+        prepare(function() {
+          expect(fs.statSync(storageFile).isFile()).to.be(true);
+          expect(fs.readFileSync(storageFile).toString())
+            .to.match(/^\[\n  "\d{14}-createPerson\.(js|coffee)"\n\]$/);
+          done();
+        });
+      });
+
+      it("should be written to the specified location", function(done) {
+        var storageFile = Support.resolveSupportPath("tmp", "custom-meta.json");
+
+        prepare(function() {
+          expect(fs.statSync(storageFile).isFile()).to.be(true);
+          expect(fs.readFileSync(storageFile).toString())
+            .to.match(/^\[\n  "\d{14}-createPerson\.(js|coffee)"\n\]$/);
+          done();
+        }, { config: { migrationStoragePath: storageFile } });
       });
     });
 
     it("creates the respective table", function(done) {
       var self = this;
+
       prepare(function() {
         helpers.readTables(self.sequelize, function(tables) {
           expect(tables).to.have.length(1);
           expect(tables).to.contain("Person");
           done();
+        });
+      });
+    });
+
+    describe("the logging option", function() {
+      it("does not print sql queries by default", function(done) {
+        prepare(function(_, stdout) {
+          expect(stdout).to.not.contain("Executing");
+          done();
+        });
+      });
+
+      it("interprets a custom option", function(done) {
+        prepare(function(_, stdout) {
+          expect(stdout).to.contain("Executing");
+          done();
+        }, { config: { logging: true } });
+      });
+    });
+
+    describe("promise based migrations", function () {
+      it("correctly creates two tables", function (done) {
+        var self = this;
+
+        prepare(function () {
+          helpers.readTables(self.sequelize, function(tables) {
+            expect(tables.sort()).to.eql([
+              "Person",
+              "SequelizeMeta",
+              "Task"
+            ]);
+            done();
+          });
+        }, {
+          migrationFile: "new/*createPerson",
+          config:        { promisifyMigrations: false }
         });
       });
     });
