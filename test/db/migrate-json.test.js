@@ -19,11 +19,13 @@ var _         = require("lodash");
   "db:migrate --config ../../support/tmp/config/config.js"
 ]).forEach(function(flag) {
   var prepare = function(callback, options) {
-    options = _.assign({ config: { migrationStorage: "json" } }, options || {});
+    options = _.assign({ config: {} }, options || {});
 
     var configPath    = "config/";
     var migrationFile = options.migrationFile || "createPerson";
-    var config        = _.assign({}, helpers.getTestConfig(), options.config);
+    var config        = _.assign({
+      migrationStorage: "json"
+    }, helpers.getTestConfig(), options.config);
     var configContent = JSON.stringify(config);
 
     migrationFile = migrationFile + "."  + ((flag.indexOf("coffee") === -1) ? "js" : "coffee");
@@ -34,8 +36,6 @@ var _         = require("lodash");
     } else {
       configPath = configPath + "config.json";
     }
-
-    console.log(">>> " + configContent);
 
     gulp
       .src(Support.resolveSupportPath("tmp"))
@@ -109,7 +109,6 @@ var _         = require("lodash");
           helpers.readTables(self.sequelize, function(tables) {
             expect(tables.sort()).to.eql([
               "Person",
-              "SequelizeMeta",
               "Task"
             ]);
             done();
